@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#10131a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>UNO 自定义大师</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- ======================= 设置屏 ======================= -->
+  <section id="screen-setup" class="screen is-active">
+    <header class="setup-head">
+      <h1>UNO <span>自定义大师</span></h1>
+      <p class="sub">纯前端静态应用 · 无外部依赖 · 支持热座与 AI 对战</p>
+    </header>
+
+    <div class="setup-body">
+      <div class="panel">
+        <h2>一键预设</h2>
+        <div id="preset-grid" class="preset-grid"></div>
+        <p class="hint-text" id="preset-hint">选择预设会同时联动「对局设置」与「自定义卡牌」。</p>
+      </div>
+
+      <div class="panel">
+        <h2>玩家配置 <small>2 - 10 人，可自由混入 AI</small></h2>
+        <div id="player-config" class="player-config"></div>
+        <div class="row-actions">
+          <button type="button" id="btn-add-player" class="btn ghost sm">+ 添加玩家</button>
+          <button type="button" id="btn-reset-players" class="btn ghost sm">重置为 1 真人 + 3 AI</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>对局设置</h2>
+        <div id="settings-form" class="settings-form"></div>
+      </div>
+
+      <div class="panel">
+        <h2>自定义卡牌</h2>
+        <div class="custom-tools top">
+          <label class="switch-line">
+            <input type="checkbox" id="cc-enabled" />
+            <span>把自定义牌组加入当前对局</span>
+          </label>
+          <div class="tool-btns">
+            <button type="button" id="btn-export" class="btn ghost sm">导出 JSON</button>
+            <button type="button" id="btn-import" class="btn ghost sm">导入 JSON</button>
+            <button type="button" id="btn-clear-custom" class="btn ghost sm danger">清空</button>
+            <input type="file" id="file-import" accept=".json,application/json" hidden />
+          </div>
+        </div>
+        <div id="custom-list" class="custom-list"></div>
+        <details class="custom-form-wrap">
+          <summary id="cc-form-summary">新建自定义牌</summary>
+          <form id="custom-form" class="custom-form" autocomplete="off">
+            <input type="hidden" id="cc-edit-id" value="" />
+            <label>名称<input type="text" id="cc-name" maxlength="10" placeholder="例如：诅咒之雨" required /></label>
+            <label>归属颜色
+              <select id="cc-color">
+                <option value="wild">万能色</option>
+                <option value="red">红</option>
+                <option value="yellow">黄</option>
+                <option value="green">绿</option>
+                <option value="blue">蓝</option>
+              </select>
+            </label>
+            <label>效果类型
+              <select id="cc-effect"></select>
+            </label>
+            <label id="cc-amount-wrap">数值 N
+              <input type="number" id="cc-amount" min="1" max="7" step="1" value="2" />
+            </label>
+            <label id="cc-bancolor-wrap" hidden>禁止的颜色
+              <select id="cc-bancolor">
+                <option value="red">红</option>
+                <option value="yellow">黄</option>
+                <option value="green">绿</option>
+                <option value="blue">蓝</option>
+              </select>
+            </label>
+            <label>图标<input type="text" id="cc-icon" maxlength="2" placeholder="🔥" value="✦" /></label>
+            <label>牌堆数量<input type="number" id="cc-count" min="1" max="8" step="1" value="1" /></label>
+            <div class="form-actions">
+              <button type="submit" class="btn primary sm" id="cc-submit">保存卡牌</button>
+              <button type="button" class="btn ghost sm" id="cc-cancel">取消编辑</button>
+            </div>
+            <p class="hint-text" id="cc-effect-desc"></p>
+          </form>
+        </details>
+      </div>
+    </div>
+
+    <footer class="setup-foot">
+      <div class="foot-note" id="deck-summary">牌堆：标准 108 张</div>
+      <button type="button" id="btn-start" class="btn primary big">开始对局</button>
+    </footer>
+  </section>
+
+  <!-- ======================= 游戏屏 ======================= -->
+  <section id="screen-game" class="screen">
+    <header class="hud">
+      <div class="hud-left">
+        <button type="button" id="btn-menu" class="icon-btn" aria-label="菜单">☰</button>
+        <div class="badge" id="hud-round">第 1 局</div>
+      </div>
+      <div class="hud-center">
+        <div class="chip color-chip" id="hud-color"><i></i><span>当前颜色</span></div>
+        <div class="chip dir-chip" id="hud-dir">方向 ↻</div>
+        <div class="chip deck-chip" id="hud-deck">牌堆 0</div>
+        <div class="chip score-chip" id="hud-score">目标 200</div>
+      </div>
+      <div class="hud-right">
+        <button type="button" id="btn-sound" class="icon-btn" aria-label="音效">🔊</button>
+        <button type="button" id="btn-fullscreen" class="icon-btn" aria-label="全屏">⛶</button>
+      </div>
+    </header>
+
+    <main class="board">
+      <div class="opponents" id="opponents"></div>
+
+      <div class="table-area">
+        <div class="pile-stack">
+          <div class="pile draw-pile" id="draw-pile" role="button" tabindex="0">
+            <div class="card back small"><div class="back-face"><span>UNO</span></div></div>
+            <div class="pile-count" id="draw-count">0</div>
+          </div>
+          <div class="pile discard-pile" id="discard-pile"></div>
+        </div>
+        <div class="direction-ring" id="direction-ring"><span>↻</span></div>
+        <div class="turn-banner" id="turn-banner">准备开始</div>
+        <div class="penalty-badge" id="penalty-badge" hidden></div>
+      </div>
+
+      <div class="self-area">
+        <div class="self-head">
+          <span id="self-name" class="self-name">你</span>
+          <span id="self-timer" class="timer"></span>
+          <span id="self-hint" class="self-hint"></span>
+        </div>
+        <div class="hand-scroll" id="hand-scroll"></div>
+        <div class="actions">
+          <button type="button" id="btn-draw" class="btn">抽牌</button>
+          <button type="button" id="btn-pass" class="btn ghost">过牌</button>
+          <button type="button" id="btn-uno" class="btn uno">UNO!</button>
+        </div>
+      </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <div class="overlay" id="overlay" hidden>
+      <div class="overlay-card" id="overlay-card"></div>
+    </div>
+  </section>
+
+  <!-- ======================= 结算屏 ======================= -->
+  <section id="screen-result" class="screen">
+    <div class="result-card">
+      <h2 id="result-title">本局结束</h2>
+      <p class="result-sub" id="result-sub"></p>
+      <div id="result-scores" class="result-scores"></div>
+      <div id="result-standings" class="result-standings"></div>
+      <div class="actions">
+        <button type="button" id="btn-next-round" class="btn primary">下一局</button>
+        <button type="button" id="btn-back-setup" class="btn ghost">返回设置</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="js/presets.js"></script>
+<script src="js/custom-cards.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
